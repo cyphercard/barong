@@ -7,7 +7,7 @@ module Vault
       ISSUER_NAME = 'Barong'
 
       def server_available?
-        read_data('sys/health').present?
+        vault.read('sys/health').present?
       rescue StandardError
         false
       end
@@ -32,6 +32,7 @@ module Vault
       end
 
       def exist?(uid)
+        return false unless server_available?
         result = read_data(totp_key(uid)).present?
         Rails.logger.debug { "Vault TOTP key #{totp_key(uid).inspect} exists? #{result.inspect}" }
         result
@@ -65,15 +66,22 @@ module Vault
       end
 
       def read_data(key)
+        return fake_data unless server_available?
         vault.read(key)
       end
 
       def write_data(key, params)
+        return fake_data unless server_available?
         vault.write(key, params)
       end
 
       def delete_data(key)
+        return fake_data unless server_available?
         vault.delete(key)
+      end
+
+      def fake_data
+        OpenStruct.new data: {}
       end
 
       def vault

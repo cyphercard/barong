@@ -3,23 +3,26 @@
 describe Vault::TOTP do
   let(:uid) { 'uid' }
   let(:email) { 'email' }
+  let(:fake_vault) { double }
 
   describe '.server_available?' do
+    before { expect(Vault).to receive(:logical) { fake_vault } }
     subject { described_class.server_available? }
 
     context 'when server is available' do
-      before { expect(described_class).to receive(:read_data) { ['data'] } }
+      before { expect(fake_vault).to receive(:read).with('sys/health') { ['data'] } }
       it { is_expected.to eq true }
     end
 
     context 'when server is not available' do
-      before { expect(described_class).to receive(:read_data) { [] } }
+      before { expect(fake_vault).to receive(:read).with('sys/health') { [] } }
       it { is_expected.to eq false }
     end
 
     context 'when exception raised' do
       before do
-        expect(described_class).to receive(:read_data).and_raise(StandardError, 'vault error')
+        expect(fake_vault).to receive(:read)
+          .with('sys/health').and_raise(StandardError, 'vault error')
       end
 
       it { is_expected.to eq false }
@@ -64,10 +67,38 @@ describe Vault::TOTP do
   end
 
   describe '.exist?' do
-    it 'creates secret' do
-      expect(described_class).to receive(:read_data)
-        .with('totp/keys/uid') { ['data'] }
-      described_class.exist?(uid)
+    before do
+      allow(described_class).to receive(:read_data)
+        .with('totp/keys/uid') { received_data }
+    end
+    subject { described_class.exist?(uid) }
+
+    context 'when server is available' do
+      before { expect(described_class).to receive(:server_available?) { true } }
+
+      context 'when data exists' do
+        let(:received_data) { ['data'] }
+        it { is_expected.to eq true }
+      end
+
+      context 'when data exists' do
+        let(:received_data) { [] }
+        it { is_expected.to eq false }
+      end
+    end
+
+    context 'when server is not available' do
+      before { expect(described_class).to receive(:server_available?) { false } }
+
+      context 'when data exists' do
+        let(:received_data) { ['data'] }
+        it { is_expected.to eq false }
+      end
+
+      context 'when data does not exist' do
+        let(:received_data) { [] }
+        it { is_expected.to eq false }
+      end
     end
   end
 
@@ -75,23 +106,24 @@ describe Vault::TOTP do
     before do
       allow(described_class).to receive(:write_data) { double(data: data) }
       allow(described_class).to receive(:read_data) { double(data: data) }
+      expect(described_class).to receive(:exist?) { exist }
     end
     let(:data) { { valid: true } }
 
     subject { described_class.validate?(uid, 'code') }
 
     context 'when not exist' do
-      before { expect(described_class).to receive(:exist?) { false } }
+      let(:exist) { false }
       it { is_expected.to eq false }
     end
 
     context 'when valid' do
-      before { expect(described_class).to receive(:exist?) { true } }
+      let(:exist) { true }
       it { is_expected.to eq true }
     end
 
     context 'when invalid' do
-      before { expect(described_class).to receive(:exist?) { true } }
+      let(:exist) { true }
       let(:data) { { valid: false } }
       it { is_expected.to eq false }
     end
@@ -103,19 +135,46 @@ describe Vault::TOTP do
   end
 
   describe 'private methods' do
-    let(:fake_vault) { double(read: 'read', write: 'writed', delete: 'deleted') }
     before { stub_const('Vault', double(logical: fake_vault)) }
 
-    it 'read_data reads from vault storage' do
-      expect(described_class.send(:read_data, 'key')).to eq 'read'
+    context 'when server is available' do
+      let(:fake_vault) do
+        double(read: 'read',
+               write: 'writed',
+               delete: 'deleted')
+      end
+
+      it 'read_data reads from vault storage' do
+        expect(described_class.send(:read_data, 'key')).to eq 'read'
+      end
+
+      it 'write_data writes to vault storage' do
+        expect(described_class.send(:write_data, 'key', {})).to eq 'writed'
+      end
+
+      it 'delete_data deletes from vault storage' do
+        expect(described_class.send(:delete_data, 'key')).to eq 'deleted'
+      end
     end
 
-    it 'write_data writes to vault storage' do
-      expect(described_class.send(:write_data, 'key', {})).to eq 'writed'
-    end
+    context 'when server is not available' do
+      let(:fake_vault) do
+        double(read: nil,
+               write: nil,
+               delete: nil)
+      end
 
-    it 'delete_data deletes from vault storage' do
-      expect(described_class.send(:delete_data, 'key')).to eq 'deleted'
+      it 'read_data reads from vault storage' do
+        expect(described_class.send(:read_data, 'key').data).to be_blank
+      end
+
+      it 'write_data writes to vault storage' do
+        expect(described_class.send(:write_data, 'key', {}).data).to be_blank
+      end
+
+      it 'delete_data deletes from vault storage' do
+        expect(described_class.send(:delete_data, 'key').data).to be_blank
+      end
     end
   end
 end
