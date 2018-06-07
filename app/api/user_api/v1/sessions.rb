@@ -30,13 +30,13 @@ module UserApi
         post do
           declared_params = declared(params, include_missing: false)
           account = Account.kept.find_by(email: declared_params[:email])
-          error!('Invalid Email or password', 401) unless account
+          error!('Invalid Email or Password', 401) unless account
 
           application = Doorkeeper::Application.find_by(uid: declared_params[:application_id])
-          error!('Wrong application id', 401) unless application
+          error!('Wrong Application ID', 401) unless application
 
           unless account.valid_password? declared_params[:password]
-            error!('Invalid Email or password', 401)
+            error!('Invalid Email or Password', 401)
           end
 
           unless account.active_for_authentication?
