@@ -16,13 +16,13 @@ describe ManagementAPI::V1::OTP, type: :request do
       {
         account_uid: account.uid,
         otp_code: valid_otp_code,
-        request_data: request_data
+        jwt: jwt
       }
     end
     let(:signers) { %i[alex jeff] }
-    let(:valid_otp_code) { 1111 }
-    let(:invalid_otp_code) { 1234 }
-    let(:request_data) { { amount: '1 BTC' } }
+    let(:valid_otp_code) { '1111' }
+    let(:invalid_otp_code) { '1234' }
+    let(:jwt) { applogic_signed_jwt(amount: '1 BTC') }
     let(:otp_enabled) { true }
     let(:do_request) do
       post_json '/management_api/v1/otp/sign',
@@ -45,6 +45,20 @@ describe ManagementAPI::V1::OTP, type: :request do
       expect(response.status).to eq 201
     end
 
+    it 'renders an error when jwt is not a Hash' do
+      data[:jwt] = 'invalid'
+      do_request
+      expect_body.to eq(error: 'jwt is invalid')
+      expect(response.status).to eq 422
+    end
+
+    it 'renders an error when jwt is not RFC' do
+      data[:jwt] = { data: 'invalid' }
+      do_request
+      expect(json_body[:error]).to include('Invalid jwt')
+      expect(response.status).to eq 422
+    end
+
     it 'renders an error when otp code is invalid' do
       data[:otp_code] = invalid_otp_code
       do_request
@@ -63,12 +77,12 @@ describe ManagementAPI::V1::OTP, type: :request do
       let(:data) { {} }
       let(:errors) do
         [
-          'account_uid is missing',
-          'account_uid is empty',
+          'Account UID is missing',
+          'Account UID is empty',
           'otp_code is missing',
           'otp_code is empty',
-          'request_data is missing',
-          'request_data is empty'
+          'jwt is missing',
+          'jwt is empty'
         ].join(', ')
       end
 

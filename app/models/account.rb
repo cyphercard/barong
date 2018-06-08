@@ -27,7 +27,7 @@ class Account < ApplicationRecord
   validates :email, uniqueness: true
   validates :uid, presence: true, uniqueness: true
 
-  scope :active, ->{ where(state: 'active') }
+  scope :active, -> { where(state: 'active') }
 
   def active_for_authentication?
     super && !discarded_at

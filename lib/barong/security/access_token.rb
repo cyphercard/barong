@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 module Barong
+  # Security module
   module Security
     class << self
       extend Memoist

@@ -17,7 +17,7 @@ Management API is server-to-server API with high privileges
 | ---- | ---------- | ----------- | -------- | ---- |
 | account_uid | formData | Account UID | Yes | string |
 | otp_code | formData | Code from Google Authenticator | Yes | integer |
-| request_data | formData | Request data from App Logic | Yes | Hash |
+| jwt | formData | RFC 7516 jwt with applogic signature | Yes | Hash |
 
 **Responses**
 
