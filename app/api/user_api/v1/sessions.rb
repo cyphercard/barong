@@ -23,8 +23,7 @@ module UserApi
           requires :application_id
           optional :expires_in, allow_blank: false
           optional :otp_code, type: String,
-                              desc: 'Code from Google Authenticator',
-                              allow_blank: false
+                              desc: 'Code from Google Authenticator'
         end
 
         post do
